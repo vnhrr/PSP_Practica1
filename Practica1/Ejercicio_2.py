@@ -1,57 +1,52 @@
-import os
+import os  # Importamos el módulo os para poder usar funciones del sistema operativo, como pipe y fork.
+import sys  # Importamos sys para manejar la salida estándar.
+import time  # Importamos time para poder pausar la ejecución (opcional).
 
-# Función para contar líneas y palabras en el contenido recibido
-def contar_lineas_y_palabras(texto):
-    lineas = texto.count('\n') + 1 if texto else 0
-    palabras = len(texto.split())
-    return lineas, palabras
+#Ejecutar en https://www.online-python.com/
 
-# Creamos un pipe para la comunicación entre padre e hijo
-padre_a_hijo, hijo_a_padre = os.pipe(), os.pipe()  # Pipe bidireccional
 
-# Fork para crear el proceso hijo
-pid = os.fork()
+def main():
+    # Creamos un par de descriptores de archivo utilizando os.pipe().
+    # fd[0] se usará para leer, y fd[1] se usará para escribir.
+    fd = os.pipe()
 
-if pid > 0:
-    # Proceso padre
-    os.close(padre_a_hijo[0])  # Cierra el extremo de lectura del pipe de padre a hijo
-    os.close(hijo_a_padre[1])  # Cierra el extremo de escritura del pipe de hijo a padre
+    # Creamos el mensaje que el padre enviará al hijo.
+    saludoPadre = "Buenos días hijo.\n"
 
-    # **Parte 1: Envío de mensaje y respuesta en mayúsculas**
-    mensaje = "Hola desde el proceso padre"
-    os.write(padre_a_hijo[1], mensaje.encode())  # Envía mensaje al hijo
-    respuesta = os.read(hijo_a_padre[0], 1024)  # Lee respuesta del hijo
-    print("Padre recibió del hijo:", respuesta.decode())  # Muestra la respuesta del hijo
+    # Creamos un nuevo proceso con fork().
+    pid = os.fork()
 
-    # **Parte 2: Envío de archivo y conteo de líneas y palabras**
-    # Enviamos el contenido de un archivo al hijo
-    with open("archivo.txt", "r") as archivo:
-        contenido = archivo.read()
-        os.write(padre_a_hijo[1], contenido.encode())  # Envía contenido del archivo al hijo
+    # Verificamos en qué proceso estamos (padre o hijo) según el valor de pid.
+    if pid < 0:
+        # Si el valor de pid es menor que 0, significa que hubo un error al crear el proceso.
+        print("No se ha podido crear el proceso hijo...")
+        sys.exit(1)  # Salimos del programa con un código de error.
 
-    # Recibe los resultados del conteo de líneas y palabras del hijo
-    conteo = os.read(hijo_a_padre[0], 1024)
-    lineas, palabras = conteo.decode().split(',')
-    print(f"Padre recibió del hijo: Líneas={lineas}, Palabras={palabras}")
+    elif pid == 0:
+        # Leemos el mensaje del pipe. Especificamos un tamaño máximo de lectura.
+        # Si en la pipe no ha escrito nadie el proceso de lectura se bloquea
+        buffer = os.read(fd[0], 80).decode("utf-8")  # Decodificamos los bytes en una cadena de texto.
+        # Cerramos el descriptor de lectura.
+        os.close(fd[0])
+        buffer = buffer.upper()
 
-    os.close(padre_a_hijo[1])
-    os.close(hijo_a_padre[0])
+        os.write(fd[1], buffer.encode("utf-8"))
+        os.close(fd[1])
 
-else:
-    # Proceso hijo
-    os.close(padre_a_hijo[1])  # Cierra el extremo de escritura del pipe de padre a hijo
-    os.close(hijo_a_padre[0])  # Cierra el extremo de lectura del pipe de hijo a padre
+    else:
+        # Escribimos el mensaje en el pipe. Codificamos la cadena a bytes.
+        os.write(fd[1], saludoPadre.encode("utf-8"))
+        print("El padre envía un mensaje al hijo...")
 
-    # **Parte 1: Recibe mensaje y responde en mayúsculas**
-    mensaje_recibido = os.read(padre_a_hijo[0], 1024).decode()
-    respuesta = mensaje_recibido.upper()
-    os.write(hijo_a_padre[1], respuesta.encode())  # Envía respuesta en mayúsculas al padre
+        # Cerramos el descriptor de escritura.
+        os.close(fd[1])
 
-    # **Parte 2: Recibe el contenido del archivo y realiza el conteo**
-    contenido_recibido = os.read(padre_a_hijo[0], 1024).decode()
-    lineas, palabras = contar_lineas_y_palabras(contenido_recibido)
-    conteo = f"{lineas},{palabras}"
-    os.write(hijo_a_padre[1], conteo.encode())  # Envía el conteo al padre
+        # Esperamos a que el proceso hijo termine.
+        os.wait()
 
-    os.close(padre_a_hijo[0])
-    os.close(hijo_a_padre[1])
+        saludoPadreMod = os.read(fd[0], 80).decode("utf-8")  # Decodificamos los bytes en una cadena de texto.
+        print(saludoPadreMod)
+
+# Ejecutamos la función principal.
+if __name__ == "__main__":
+    main()

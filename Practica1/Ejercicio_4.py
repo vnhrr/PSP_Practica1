@@ -12,14 +12,35 @@ comandos = [b"verbose\n",  # Activa el modo detallado para mostrar más informac
             b"ls\n",  # Lista los archivos y directorios en el servidor remoto.
             b"get readme.txt\n"]  # Descarga el archivo 'readme.txt' desde el servidor.
 
+datos = ""
 
-def comprobar():
+def descargar():
     for cmd in comandos:
         p2.stdin.write(cmd)  # Escribimos el comando en la entrada estándar del proceso.
     respuesta = p2.communicate(timeout=5)[0]
+    with open("readme.txt", "r") as txtFile:
+        txt = txtFile.read()
+    almacenarPortapapeles(txt)
+
+
+def comprobar():
     if (respuesta) != (almacenar()):
         print("Ha cambiado el contenido")
         return False
+
+def almacenarPortapapeles(respuesta):
+    # Enviar datos al portapapeles
+    win32clipboard.OpenClipboard()  # Abre el portapapeles para manipularlo.
+    win32clipboard.EmptyClipboard()  # Limpia el contenido actual del portapapeles.
+    win32clipboard.SetClipboardText()  # Establece el texto de la respuesta en el portapapeles.
+    win32clipboard.CloseClipboard()  # Cierra el portapapeles para liberar el acceso.
+
+    # Obtener datos del portapapeles
+    win32clipboard.OpenClipboard()  # Abre nuevamente el portapapeles para leer su contenido.
+    datos = win32clipboard.GetClipboardData()  # Obtiene los datos actuales del portapapeles (en este caso, el texto).
+    win32clipboard.CloseClipboard()  # Cierra el portapapeles para liberar el acceso.
+    # Imprimir el contenido obtenido del portapapeles
+    return datos
 
 
 def almacenar():
@@ -48,3 +69,7 @@ def almacenar():
 print(str(almacenar()))
 while (True):
     comprobar()
+
+    # almacenar el contenido del fichero descargado en una variable y en el portapapeles, y despues con un bucle
+    # infinito comprobar de forma continua si la variable es igual a lo que tengo en el portapapeles en caso contrario
+    # mandar un mensaje
